@@ -51,6 +51,16 @@ class NotificationKit:
 	def telegram_chat_id(self):
 		return os.getenv('TELEGRAM_CHAT_ID')
 
+	@property
+	def bark_key(self):
+	    return os.getenv('BARK_KEY', '')
+
+	def send_bark(self, title: str, content: str):
+    if not self.bark_key:
+        raise ValueError('Bark Key not configured')
+    data = {'title': title, 'body': content}
+    curl_requests.post(f'https://api.day.app/{self.bark_key}', json=data, timeout=30)
+
 	def send_email(self, title: str, content: str, msg_type: Literal['text', 'html'] = 'text'):
 		if not self.email_user or not self.email_pass or not self.email_to:
 			raise ValueError('Email configuration not set')
@@ -125,6 +135,7 @@ class NotificationKit:
 			('Feishu', lambda: self.send_feishu(title, content)),
 			('WeChat Work', lambda: self.send_wecom(title, content)),
 			('Telegram', lambda: self.send_telegram(title, content)),
+			('Bark', lambda: self.send_bark(title, content)),
 		]
 
 		for name, func in notifications:
