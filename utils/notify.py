@@ -45,22 +45,22 @@ class NotificationKit:
 
 	@property
 	def telegram_bot_token(self):
-		return os.getenv('TELEGRAM_BOT_TOKEN')
-
+	    return os.getenv('TELEGRAM_BOT_TOKEN')
+	
 	@property
 	def telegram_chat_id(self):
-		return os.getenv('TELEGRAM_CHAT_ID')
-
+	    return os.getenv('TELEGRAM_CHAT_ID')
+	
 	@property
 	def bark_key(self):
 	    return os.getenv('BARK_KEY', '')
-
+	
 	def send_bark(self, title: str, content: str):
-    if not self.bark_key:
-        raise ValueError('Bark Key not configured')
-    data = {'title': title, 'body': content}
-    curl_requests.post(f'https://api.day.app/{self.bark_key}', json=data, timeout=30)
-
+	    if not self.bark_key:
+	        raise ValueError('Bark Key not configured')
+	    data = {'title': title, 'body': content}
+	    curl_requests.post(f'https://api.day.app/{self.bark_key}', json=data, timeout=30)
+	
 	def send_email(self, title: str, content: str, msg_type: Literal['text', 'html'] = 'text'):
 		if not self.email_user or not self.email_pass or not self.email_to:
 			raise ValueError('Email configuration not set')
