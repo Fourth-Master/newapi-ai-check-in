@@ -125,6 +125,7 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         BARK_KEY: ${{ secrets.BARK_KEY }}
+        RUN_LINUXDO_LOGIN_MANUAL: 'true'
       run: |
         # 列出 storage-states 目录文件
         if (Test-Path "storage-states") {
