@@ -174,7 +174,7 @@ class GitHubSignIn:
                             # 处理两步验证（如果需要）
                             try:
                                 # 检查是否需要两步验证
-                                otp_input = await page.query_selector('input[name="otp"]')
+                                otp_input = await page.query_selector('#app_totp, input[name="app_otp"], input[name="otp"]')
                                 if otp_input:
                                     print(f"ℹ️ {self.account_name}: Two-factor authentication required")
 
