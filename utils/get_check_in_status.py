@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from curl_cffi import requests as curl_requests
 
-from utils.http_utils import proxy_resolve, response_resolve
+from utils.http_utils import proxy_resolve, response_resolve, resolve_account_proxy
 from utils.get_headers import get_curl_cffi_impersonate
 
 if TYPE_CHECKING:
@@ -40,14 +40,14 @@ def get_newapi_check_in_status(
         bool: 今日是否已签到
     """
     account_name = account_config.get_display_name()
-    # 代理优先级: 账号配置 > 全局配置
-    proxy_config = account_config.proxy or account_config.get("global_proxy")
+    # 账号代理默认不启用，proxy=true 时使用全局 PROXY 配置
+    proxy_config = resolve_account_proxy(account_config)
     http_proxy = proxy_resolve(proxy_config)
     
     current_month = datetime.now().strftime("%Y-%m")
     check_in_status_url = f"{provider_config.origin}{path}?month={current_month}"
 
-    print(f"🔍 {account_name}: Getting check-in status")
+    print(f"🔍 {account_name}: 正在查询签到状态")
 
     # 根据 User-Agent 自动推断 impersonate 值
     user_agent = headers.get("User-Agent", "")
@@ -66,7 +66,7 @@ def get_newapi_check_in_status(
             if response.status_code == 200:
                 json_data = response_resolve(response, "get_check_in_status", account_name)
                 if json_data is None:
-                    print(f"❌ {account_name}: Invalid response format for check-in status")
+                    print(f"❌ {account_name}: 签到状态响应格式无效")
                     return False
 
                 if json_data.get("success"):
@@ -80,24 +80,24 @@ def get_newapi_check_in_status(
                     total_quota_display = round(total_quota / 500000, 2) if total_quota else 0
 
                     print(
-                        f"📊 {account_name}: Check-in status - "
-                        f"Today: {'✅' if checked_in_today else '❌'}, "
-                        f"Count: {checkin_count}, "
-                        f"Total quota: ${total_quota_display}"
+                        f"📊 {account_name}: 签到状态 - "
+                        f"今日: {'✅' if checked_in_today else '❌'}, "
+                        f"次数: {checkin_count}, "
+                        f"总额度: ${total_quota_display}"
                     )
 
                     return checked_in_today
                 else:
-                    error_msg = json_data.get("message", "Unknown error")
-                    print(f"❌ {account_name}: Failed to get check-in status: {error_msg}")
+                    error_msg = json_data.get("message", "未知错误")
+                    print(f"❌ {account_name}: 查询签到状态失败: {error_msg}")
                     return False
             else:
-                print(f"❌ {account_name}: Failed to get check-in status: HTTP {response.status_code}")
+                print(f"❌ {account_name}: 查询签到状态失败: HTTP {response.status_code}")
                 return False
         finally:
             session.close()
     except Exception as e:
-        print(f"❌ {account_name}: Error getting check-in status: {e}")
+        print(f"❌ {account_name}: 查询签到状态时发生错误: {e}")
         return False
 
 

@@ -6,9 +6,35 @@
 import json
 import os
 from datetime import datetime
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
 from curl_cffi import requests as curl_requests
+
+if TYPE_CHECKING:
+    from utils.config import AccountConfig
+
+
+def resolve_account_proxy(account_config: "AccountConfig") -> dict | None:
+    """解析账号代理配置（默认不启用）
+
+    规则:
+    - proxy 未配置或为 false: 不启用代理（不会自动回退到全局 PROXY）
+    - proxy 为 true: 使用全局 PROXY 配置（存储在 extra["global_proxy"] 中）
+    - proxy 为 dict（如 {"server": "socks5://host:port"}）: 使用自定义代理
+
+    Args:
+        account_config: 账号配置
+
+    Returns:
+        代理配置字典（Camoufox/Playwright 格式），未启用时返回 None
+    """
+    proxy = getattr(account_config, "proxy", None)
+    if proxy is True:
+        return account_config.get("global_proxy")
+    if isinstance(proxy, dict) and proxy:
+        return proxy
+    return None
 
 
 def proxy_resolve(proxy_config: dict | None = None) -> str | None:
@@ -65,7 +91,7 @@ def response_resolve(
     try:
         return response.json()
     except json.JSONDecodeError as e:
-        print(f"❌ {account_name}: Failed to parse JSON response: {e}")
+        print(f"❌ {account_name}: JSON 响应解析失败: {e}")
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_context = "".join(c if c.isalnum() else "_" for c in context)
@@ -79,7 +105,7 @@ def response_resolve(
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(response.text)
 
-            print(f"⚠️ {account_name}: Received HTML response, saved to: {filepath}")
+            print(f"⚠️ {account_name}: 收到 HTML 响应，已保存到: {filepath}")
         else:
             filename = f"{safe_account_name}_{timestamp}_{safe_context}_invalid.txt"
             filepath = os.path.join(logs_dir, filename)
@@ -87,8 +113,8 @@ def response_resolve(
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(response.text)
 
-            print(f"⚠️ {account_name}: Invalid response saved to: {filepath}")
+            print(f"⚠️ {account_name}: 无效响应已保存到: {filepath}")
         return None
     except Exception as e:
-        print(f"❌ {account_name}: Error occurred while checking and handling response: {e}")
+        print(f"❌ {account_name}: 检查和处理响应时发生错误: {e}")
         return None

@@ -23,7 +23,7 @@ class WaitForSecrets:
         request_url = os.getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
 
         if not request_token or not request_url:
-            print("⚠️ Not running in GitHub Actions environment (OIDC tokens not available)")
+            print("⚠️ 未在 GitHub Actions 环境中运行（OIDC token 不可用）")
             return None
 
         try:
@@ -42,13 +42,13 @@ class WaitForSecrets:
                 token = data.get("value")
                 if token:
                     return token
-                print("❌ OIDC token not found in response")
+                print("❌ 响应中未找到 OIDC token")
                 return None
-            print(f"❌ Failed to get OIDC token: HTTP {response.status_code}")
+            print(f"❌ 获取 OIDC token 失败: HTTP {response.status_code}")
             return None
 
         except Exception as e:
-            print(f"❌ Error getting OIDC token: {e}")
+            print(f"❌ 获取 OIDC token 时出错: {e}")
             return None
 
     def parse_data_from_environment(self) -> Optional[list[str]]:
@@ -61,7 +61,7 @@ class WaitForSecrets:
         run_id = os.getenv("GITHUB_RUN_ID")
 
         if not repository or not run_id:
-            print("⚠️ Not running in GitHub Actions environment")
+            print("⚠️ 未在 GitHub Actions 环境中运行")
             return None
 
         if "/" in repository:
@@ -128,39 +128,39 @@ class WaitForSecrets:
             put_response = curl_requests.put(api_url, headers=headers, json=secrets_metadata_payload, timeout=30)
 
             if put_response.status_code != 200:
-                print(f"❌ Failed to register secret request: HTTP {put_response.status_code}, {put_response.text}")
+                print(f"❌ 注册密钥请求失败: HTTP {put_response.status_code}, {put_response.text}")
                 return None
 
-            print("✅ Secret request registered")
+            print("✅ 密钥请求已注册")
 
             # Send notification with secret URL
             try:
                 from utils.notify import notify
 
-                notify_title = notification.get("title", "Secret Required:")
+                notify_title = notification.get("title", "需要输入密钥：")
                 notify_content = notification.get("content", "")
                 if notify_content:
                     notify_content += "\n"
-                notify_content += f"🔗 Please visit this URL to input secrets in {timeout} minute(s):\n{secret_url}"
+                notify_content += f"🔗 请在 {timeout} 分钟内访问以下链接输入密钥：\n{secret_url}"
                 notify.push_message(notify_title, notify_content, msg_type="text")
-                print("✅ Notification sent with secret URL")
+                print("✅ 已发送带密钥链接的通知")
             except Exception as e:
-                print(f"⚠️ Failed to send notification: {e}")
+                print(f"⚠️ 发送通知失败: {e}")
 
             # Step 2: Poll for secrets
             start_time = time.time()
             timeout_in_seconds = timeout * 60  # Convert minutes to seconds
             secrets_data = None
 
-            print(f"⏳ Polling for secrets (timeout: {timeout} minute(s))...")
-            print(f"  🔗 Visit this URL to input secrets: {secret_url}")
+            print(f"⏳ 正在等待密钥（超时: {timeout} 分钟）...")
+            print(f"  🔗 请访问以下链接输入密钥: {secret_url}")
 
             while True:
                 elapsed = time.time() - start_time
 
                 if elapsed >= timeout_in_seconds:
-                    print(f"⏱️ Timeout after {timeout} minute(s) waiting for secrets")
-                    print(f"🔗 Secret URL was: {secret_url}")
+                    print(f"⏱️ 等待密钥超时（{timeout} 分钟）")
+                    print(f"🔗 密钥链接: {secret_url}")
                     break
 
                 try:
@@ -190,10 +190,10 @@ class WaitForSecrets:
                                     value = secret.get("Value")
                                     if name and value:
                                         secrets_data[name] = value
-                                print(f"✅ Secrets received: {secrets_data}")
+                                print(f"✅ 已收到密钥: {secrets_data}")
                                 break
                         else:
-                            print(f"  🔗 Visit this URL to input secrets: {secret_url}")
+                            print(f"  🔗 请访问以下链接输入密钥: {secret_url}")
                             # Wait before next polling
                             time.sleep(9)
                     else:
@@ -201,14 +201,14 @@ class WaitForSecrets:
                         try:
                             body = get_response.text
                             if body != "Token used before issued":
-                                print(f"Response: {body}")
+                                print(f"响应内容: {body}")
                                 break
                             # If "Token used before issued", continue polling
                         except Exception:
-                            print(f"⚠️ Unexpected response: HTTP {get_response.status_code}")
+                            print(f"⚠️ 异常响应: HTTP {get_response.status_code}")
 
                 except Exception as e:
-                    print(f"⚠️ Polling error: {e}")
+                    print(f"⚠️ 轮询出错: {e}")
 
                 # Wait before next poll
                 time.sleep(1)
@@ -218,22 +218,22 @@ class WaitForSecrets:
                 # Get OIDC token
                 token = self.get_oidc_token()
                 if not token:
-                    raise Exception("Failed to get OIDC token for clearing secrets")
+                    raise Exception("获取用于清除密钥的 OIDC token 失败")
 
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
                 delete_response = curl_requests.delete(api_url, headers=headers, timeout=30)
 
                 if delete_response.status_code == 200:
-                    print("✅ Secret cleared from datastore")
+                    print("✅ 密钥已从数据存储中清除")
                 else:
-                    print(f"⚠️ Failed to clear secret: HTTP {delete_response.status_code}, {delete_response.text}")
+                    print(f"⚠️ 清除密钥失败: HTTP {delete_response.status_code}, {delete_response.text}")
 
             except Exception as e:
-                print(f"⚠️ Error clearing secret: {e}")
+                print(f"⚠️ 清除密钥时出错: {e}")
 
             return secrets_data
 
         except Exception as e:
-            print(f"❌ Error in wait_for_secrets: {e}")
+            print(f"❌ wait_for_secrets 执行出错: {e}")
             return None

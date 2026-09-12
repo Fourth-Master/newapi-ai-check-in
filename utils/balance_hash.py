@@ -32,4 +32,4 @@ def save_balance_hash(balance_hash_file: str, balance_hash: str) -> None:
         with open(balance_hash_file, "w", encoding="utf-8") as f:
             f.write(balance_hash)
     except Exception as e:
-        print(f"Warning: Failed to save balance hash: {e}")
+        print(f"⚠️ 保存余额哈希失败: {e}")

@@ -74,13 +74,13 @@ def filter_cookies(cookies: list[dict], origin: str) -> dict:
                 filtered_items.append(f"{cookie_name}({cookie_domain})")
 
     if matched_items:
-        print(f"  🔵 Matched: {', '.join(matched_items)}")
+        print(f"  🔵 匹配: {', '.join(matched_items)}")
     if filtered_items:
-        print(f"  🔴 Filtered: {', '.join(filtered_items)}")
+        print(f"  🔴 过滤: {', '.join(filtered_items)}")
 
     print(
-        f"🔍 Cookie filtering result ({provider_domain}): "
-        f"{len(matched_items)} matched, {len(filtered_items)} filtered"
+        f"🔍 Cookie 过滤结果（{provider_domain}）: "
+        f"{len(matched_items)} 个匹配，{len(filtered_items)} 个被过滤"
     )
 
     return user_cookies
@@ -126,7 +126,7 @@ async def take_screenshot(
     debug_enabled = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
     if not debug_enabled:
-        print(f"🔍 {account_name}: Screenshot skipped (DEBUG=false), reason: {reason}")
+        print(f"🔍 {account_name}: 已跳过截图（DEBUG=false），原因: {reason}")
         return
 
     try:
@@ -142,9 +142,9 @@ async def take_screenshot(
         filepath = os.path.join(screenshots_dir, filename)
 
         await page.screenshot(path=filepath, full_page=True)
-        print(f"📸 {account_name}: Screenshot saved to {filepath}")
+        print(f"📸 {account_name}: 截图已保存到 {filepath}")
     except Exception as e:
-        print(f"⚠️ {account_name}: Failed to take screenshot: {e}")
+        print(f"⚠️ {account_name}: 截图失败: {e}")
 
 
 async def save_page_content_to_file(
@@ -170,7 +170,7 @@ async def save_page_content_to_file(
     debug_enabled = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
 
     if not debug_enabled:
-        print(f"🔍 {account_name}: Save HTML skipped (DEBUG=false), reason: {reason}")
+        print(f"🔍 {account_name}: 已跳过保存 HTML（DEBUG=false），原因: {reason}")
         return
 
     try:
@@ -193,9 +193,9 @@ async def save_page_content_to_file(
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html_content)
 
-        print(f"📄 {account_name}: Page HTML saved to {filepath}")
+        print(f"📄 {account_name}: 页面 HTML 已保存到 {filepath}")
     except Exception as e:
-        print(f"⚠️ {account_name}: Failed to save HTML: {e}")
+        print(f"⚠️ {account_name}: 保存 HTML 失败: {e}")
 
 
 async def aliyun_captcha_check(page, account_name: str) -> bool:
@@ -225,19 +225,19 @@ async def aliyun_captcha_check(page, account_name: str) -> bool:
         )
 
         if traceid:
-            print(f"⚠️ {account_name}: Aliyun captcha detected, traceid: {traceid}")
+            print(f"⚠️ {account_name}: 检测到阿里云验证码，traceid: {traceid}")
             try:
                 await page.wait_for_selector("#nocaptcha", timeout=60000)
 
                 slider_element = await page.query_selector("#nocaptcha .nc_scale")
                 if slider_element:
                     slider = await slider_element.bounding_box()
-                    print(f"ℹ️ {account_name}: Slider bounding box: {slider}")
+                    print(f"ℹ️ {account_name}: 滑块边界框: {slider}")
 
                 slider_handle = await page.query_selector("#nocaptcha .btn_slide")
                 if slider_handle:
                     handle = await slider_handle.bounding_box()
-                    print(f"ℹ️ {account_name}: Slider handle bounding box: {handle}")
+                    print(f"ℹ️ {account_name}: 滑块手柄边界框: {handle}")
 
                 if slider and handle:
                     await take_screenshot(page, "aliyun_captcha_slider_start", account_name)
@@ -261,18 +261,18 @@ async def aliyun_captcha_check(page, account_name: str) -> bool:
                     await take_screenshot(page, "aliyun_captcha_slider_result", account_name)
                     return True
                 else:
-                    print(f"❌ {account_name}: Slider or handle not found")
+                    print(f"❌ {account_name}: 未找到滑块或滑块手柄")
                     await take_screenshot(page, "aliyun_captcha_error", account_name)
                     return False
             except Exception as e:
-                print(f"❌ {account_name}: Error occurred while moving slider, {e}")
+                print(f"❌ {account_name}: 移动滑块时发生错误: {e}")
                 await take_screenshot(page, "aliyun_captcha_error", account_name)
                 return False
         else:
-            print(f"ℹ️ {account_name}: No traceid found")
+            print(f"ℹ️ {account_name}: 未找到 traceid")
             await take_screenshot(page, "aliyun_captcha_traceid_found", account_name)
             return True
     except Exception as e:
-        print(f"❌ {account_name}: Error occurred while getting traceid, {e}")
+        print(f"❌ {account_name}: 获取 traceid 时发生错误: {e}")
         await take_screenshot(page, "aliyun_captcha_error", account_name)
         return False

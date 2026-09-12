@@ -43,10 +43,10 @@ def topup(
     # 获取 topup URL
     topup_url = provider_config.get_topup_url()
     if not topup_url:
-        print(f"❌ {account_name}: No topup URL configured")
+        print(f"❌ {account_name}: 未配置充值 URL")
         return {
             "success": False,
-            "error": "No topup URL configured",
+            "error": "未配置充值 URL",
         }
     
     # 根据 User-Agent 自动推断 impersonate 值
@@ -78,44 +78,44 @@ def topup(
             if json_data is None:
                 return {
                     "success": False,
-                    "error": "Failed to topup: Invalid response type (saved to logs)",
+                    "error": "充值失败：响应类型无效（已保存到日志）",
                 }
 
             if json_data.get("success"):
-                message = json_data.get("message", "Topup successful")
+                message = json_data.get("message", "充值成功")
                 data = json_data.get("data")
-                print(f"✅ {account_name}: Topup successful - {message}, data: {data}")
+                print(f"✅ {account_name}: 充值成功 - {message}，数据：{data}")
                 return {
                     "success": True,
                     "message": message,
                     "data": data,
                 }
             else:
-                error_msg = json_data.get("message", "Unknown error")
+                error_msg = json_data.get("message", "未知错误")
                 # 检查是否是已使用的情况
                 if "已被使用" in error_msg or "already" in error_msg.lower() or "已使用" in error_msg:
-                    print(f"✅ {account_name}: Code already used - {error_msg}")
+                    print(f"✅ {account_name}: CDK 已被使用 - {error_msg}")
                     return {
                         "success": True,
                         "message": error_msg,
                         "already_used": True,
                     }
-                print(f"❌ {account_name}: Topup failed - {error_msg}")
+                print(f"❌ {account_name}: 充值失败 - {error_msg}")
                 return {
                     "success": False,
-                    "error": f"Topup failed: {error_msg}(key: {key})",
+                    "error": f"充值失败：{error_msg}（key: {key}）",
                 }
         else:
-            print(f"❌ {account_name}: Topup failed - HTTP {response.status_code}")
+            print(f"❌ {account_name}: 充值失败 - HTTP {response.status_code}")
             return {
                 "success": False,
-                "error": f"Topup failed: HTTP {response.status_code}(key: {key})",
+                "error": f"充值失败：HTTP {response.status_code}（key: {key}）",
             }
     except Exception as e:
-        print(f"❌ {account_name}: Topup error - {e}")
+        print(f"❌ {account_name}: 充值出错 - {e}")
         return {
             "success": False,
-            "error": f"Topup failed: {e}(key: {key})",
+            "error": f"充值失败：{e}（key: {key}）",
         }
     finally:
         session.close()

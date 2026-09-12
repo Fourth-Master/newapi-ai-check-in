@@ -90,11 +90,11 @@ def test_missing_config():
 		kit.send_pushplus('测试', '测试')
 
 
-@patch('newapi.ai.notify.NotificationKit.send_email')
-@patch('newapi.ai.notify.NotificationKit.send_dingtalk')
-@patch('newapi.ai.notify.NotificationKit.send_wecom')
-@patch('newapi.ai.notify.NotificationKit.send_pushplus')
-@patch('newapi.ai.notify.NotificationKit.send_feishu')
+@patch('utils.notify.NotificationKit.send_email')
+@patch('utils.notify.NotificationKit.send_dingtalk')
+@patch('utils.notify.NotificationKit.send_wecom')
+@patch('utils.notify.NotificationKit.send_pushplus')
+@patch('utils.notify.NotificationKit.send_feishu')
 def test_push_message(mock_feishu, mock_pushplus, mock_wecom, mock_dingtalk, mock_email, notification_kit):
 	notification_kit.push_message('测试标题', '测试内容')
 

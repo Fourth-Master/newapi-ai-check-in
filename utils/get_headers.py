@@ -218,7 +218,7 @@ def print_browser_headers(account_name: str, browser_headers: dict) -> None:
         account_name: 账号名称
         browser_headers: 浏览器指纹头部字典
     """
-    print(f"ℹ️ {account_name}: Browser fingerprint captured:")
+    print(f"ℹ️ {account_name}: 已捕获浏览器指纹:")
     for key, value in browser_headers.items():
         # User-Agent 较长，截断显示
         if key == "User-Agent":

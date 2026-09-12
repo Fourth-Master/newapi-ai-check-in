@@ -57,13 +57,13 @@ class NotificationKit:
 
 	def send_bark(self, title: str, content: str):
 		if not self.bark_key:
-			raise ValueError('Bark Key not configured')
+			raise ValueError('未配置Bark Key')
 		data = {'title': title, 'body': content}
 		curl_requests.post(f'https://api.day.app/{self.bark_key}', json=data, timeout=30)
 
 	def send_email(self, title: str, content: str, msg_type: Literal['text', 'html'] = 'text'):
 		if not self.email_user or not self.email_pass or not self.email_to:
-			raise ValueError('Email configuration not set')
+			raise ValueError('未配置邮箱信息')
 
 		# MIMEText 需要 'plain' 或 'html'，而不是 'text'
 		mime_subtype = 'plain' if msg_type == 'text' else 'html'
@@ -79,28 +79,28 @@ class NotificationKit:
 
 	def send_pushplus(self, title: str, content: str):
 		if not self.pushplus_token:
-			raise ValueError('PushPlus Token not configured')
+			raise ValueError('未配置PushPlus Token')
 
 		data = {'token': self.pushplus_token, 'title': title, 'content': content, 'template': 'html'}
 		curl_requests.post('http://www.pushplus.plus/send', json=data, timeout=30)
 
 	def send_serverPush(self, title: str, content: str):
 		if not self.server_push_key:
-			raise ValueError('Server Push key not configured')
+			raise ValueError('未配置Server Push key')
 
 		data = {'title': title, 'desp': content}
 		curl_requests.post(f'https://sctapi.ftqq.com/{self.server_push_key}.send', json=data, timeout=30)
 
 	def send_dingtalk(self, title: str, content: str):
 		if not self.dingding_webhook:
-			raise ValueError('DingTalk Webhook not configured')
+			raise ValueError('未配置钉钉Webhook')
 
 		data = {'msgtype': 'text', 'text': {'content': f'{title}\n{content}'}}
 		curl_requests.post(self.dingding_webhook, json=data, timeout=30)
 
 	def send_feishu(self, title: str, content: str):
 		if not self.feishu_webhook:
-			raise ValueError('Feishu Webhook not configured')
+			raise ValueError('未配置飞书Webhook')
 
 		data = {
 			'msg_type': 'interactive',
@@ -113,14 +113,14 @@ class NotificationKit:
 
 	def send_wecom(self, title: str, content: str):
 		if not self.weixin_webhook:
-			raise ValueError('WeChat Work Webhook not configured')
+			raise ValueError('未配置企业微信Webhook')
 
 		data = {'msgtype': 'text', 'text': {'content': f'{title}\n{content}'}}
 		curl_requests.post(self.weixin_webhook, json=data, timeout=30)
 
 	def send_telegram(self, title: str, content: str):
 		if not self.telegram_bot_token or not self.telegram_chat_id:
-			raise ValueError('Telegram Bot Token or Chat ID not configured')
+			raise ValueError('未配置Telegram Bot Token或Chat ID')
 
 		text = f'*{title}*\n{content}'
 		data = {'chat_id': self.telegram_chat_id, 'text': text, 'parse_mode': 'Markdown'}
@@ -128,12 +128,12 @@ class NotificationKit:
 
 	def push_message(self, title: str, content: str, msg_type: Literal['text', 'html'] = 'text'):
 		notifications = [
-			('Email', lambda: self.send_email(title, content, msg_type)),
+			('邮箱', lambda: self.send_email(title, content, msg_type)),
 			('PushPlus', lambda: self.send_pushplus(title, content)),
-			('Server Push', lambda: self.send_serverPush(title, content)),
-			('DingTalk', lambda: self.send_dingtalk(title, content)),
-			('Feishu', lambda: self.send_feishu(title, content)),
-			('WeChat Work', lambda: self.send_wecom(title, content)),
+			('Server酱', lambda: self.send_serverPush(title, content)),
+			('钉钉', lambda: self.send_dingtalk(title, content)),
+			('飞书', lambda: self.send_feishu(title, content)),
+			('企业微信', lambda: self.send_wecom(title, content)),
 			('Telegram', lambda: self.send_telegram(title, content)),
 			('Bark', lambda: self.send_bark(title, content)),
 		]
@@ -141,9 +141,9 @@ class NotificationKit:
 		for name, func in notifications:
 			try:
 				func()
-				print(f'🔹 [{name}]: Message push successful!')
+				print(f'🔹 [{name}]: 消息推送成功！')
 			except Exception as e:
-				print(f'🔸 [{name}]: Message push failed! Reason: {str(e)}')
+				print(f'🔸 [{name}]: 消息推送失败！原因: {str(e)}')
 
 
 notify = NotificationKit()

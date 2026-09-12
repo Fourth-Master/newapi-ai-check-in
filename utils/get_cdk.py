@@ -22,7 +22,7 @@ from camoufox.async_api import AsyncCamoufox
 from curl_cffi import requests as curl_requests
 
 from utils.browser_utils import take_screenshot, save_page_content_to_file
-from utils.http_utils import proxy_resolve, response_resolve
+from utils.http_utils import proxy_resolve, response_resolve, resolve_account_proxy
 from utils.get_headers import get_curl_cffi_impersonate
 from utils.get_cf_clearance import get_cf_clearance
 
@@ -49,12 +49,12 @@ def get_runawaytime_cdk(
     get_cdk_cookies = account_config.get("fuli_cookies") or account_config.get("get_cdk_cookies")
 
     if not get_cdk_cookies:
-        print(f"❌ {account_name}: get_cdk_cookies not found in account config")
-        yield False, {"error": "get_cdk_cookies not found in account config"}
+        print(f"❌ {account_name}: 账号配置中未找到 get_cdk_cookies")
+        yield False, {"error": "账号配置中未找到 get_cdk_cookies"}
         return
 
-    # 代理优先级: 账号配置 > 全局配置
-    proxy_config = account_config.proxy or account_config.get("global_proxy")
+    # 账号代理默认不启用，proxy=true 时使用全局 PROXY 配置
+    proxy_config = resolve_account_proxy(account_config)
     http_proxy = proxy_resolve(proxy_config)
 
     try:
@@ -99,7 +99,7 @@ def get_runawaytime_cdk(
             if status_response.status_code == 200:
                 status_data = response_resolve(status_response, "get_checkin_status", account_name)
                 if status_data and status_data.get("checked"):
-                    print(f"✅ {account_name}: Already checked in today")
+                    print(f"✅ {account_name}: 今日已签到")
                     already_checked_in = True
 
             if not already_checked_in:
@@ -128,14 +128,14 @@ def get_runawaytime_cdk(
                         if json_data.get("success"):
                             code = json_data.get("code", "")
                             if code:
-                                print(f"✅ {account_name}: Checkin successful! Code: {code}")
+                                print(f"✅ {account_name}: 签到成功！CDK: {code}")
                                 yield True, {"code": code}
                         else:
                             message = json_data.get("message", json_data.get("msg", ""))
                             if "already" in message.lower() or "已经" in message or "已签" in message:
-                                print(f"✅ {account_name}: Already checked in today")
+                                print(f"✅ {account_name}: 今日已签到")
                             else:
-                                print(f"❌ {account_name}: Checkin failed - {message}")
+                                print(f"❌ {account_name}: 签到失败 - {message}")
 
             # ===== 第二部分：大转盘 =====
             # 先检查大转盘状态
@@ -161,9 +161,9 @@ def get_runawaytime_cdk(
                 if status_data:
                     remaining = status_data.get("remaining", 0)
                     if remaining <= 0:
-                        print(f"ℹ️ {account_name}: No wheel spins remaining")
+                        print(f"ℹ️ {account_name}: 大转盘已无剩余次数")
                     else:
-                        print(f"ℹ️ {account_name}: {remaining} wheel spin(s) remaining")
+                        print(f"ℹ️ {account_name}: 大转盘剩余 {remaining} 次")
 
             # 执行大转盘（循环直到 remaining <= 0）
             if remaining > 0:
@@ -200,7 +200,7 @@ def get_runawaytime_cdk(
                             if code:
                                 spin_count += 1
                                 print(
-                                    f"✅ {account_name}: Wheel spin #{spin_count} successful! Code: {code}, remaining: {remaining}"
+                                    f"✅ {account_name}: 大转盘第 {spin_count} 次抽奖成功！CDK: {code}，剩余次数：{remaining}"
                                 )
                                 yield True, {"code": code}
                                 continue
@@ -212,21 +212,21 @@ def get_runawaytime_cdk(
                             or "次数" in message
                             or "no more" in message.lower()
                         ):
-                            print(f"ℹ️ {account_name}: No more wheel spins remaining")
+                            print(f"ℹ️ {account_name}: 大转盘已无剩余抽奖次数")
                             break
 
-                        print(f"❌ {account_name}: Wheel spin #{spin_count + 1} failed - {message}")
+                        print(f"❌ {account_name}: 大转盘第 {spin_count + 1} 次抽奖失败 - {message}")
                         break
                     else:
                         break
 
                 if spin_count > 0:
-                    print(f"✅ {account_name}: Total {spin_count} CDK(s) obtained from wheel")
+                    print(f"✅ {account_name}: 大转盘共获得 {spin_count} 个 CDK")
         finally:
             session.close()
     except Exception as e:
-        print(f"❌ {account_name}: Error getting runawaytime CDK - {e}")
-        yield False, {"error": f"Error getting runawaytime CDK - {e}"}
+        print(f"❌ {account_name}: 获取 runawaytime CDK 出错 - {e}")
+        yield False, {"error": f"获取 runawaytime CDK 出错 - {e}"}
 
 
 async def _get_x666_user_token(
@@ -279,7 +279,7 @@ async def _get_x666_user_token(
     username_hash = hashlib.sha256(username.encode()).hexdigest()[:8]
     cache_file_path = f"storage-states/x666_up_{username_hash}.json"
 
-    print(f"ℹ️ {account_name}: Attempting auto-login to up.x666.me via Linux.do")
+    print(f"ℹ️ {account_name}: 正在通过 Linux.do 自动登录 up.x666.me")
 
     try:
         proxy_args = {}
@@ -298,9 +298,9 @@ async def _get_x666_user_token(
         ) as browser:
             storage_state = cache_file_path if os.path.exists(cache_file_path) else None
             if storage_state:
-                print(f"ℹ️ {account_name}: Found x666 cache file, restoring storage state")
+                print(f"ℹ️ {account_name}: 找到 x666 缓存文件，正在恢复存储状态")
             else:
-                print(f"ℹ️ {account_name}: No x666 cache file found, starting fresh")
+                print(f"ℹ️ {account_name}: 未找到 x666 缓存文件，从头开始")
 
             context = await browser.new_context(storage_state=storage_state)
             page = await context.new_page()
@@ -313,16 +313,16 @@ async def _get_x666_user_token(
                 # 检查 localStorage 中是否已有 userToken（缓存有效时）
                 existing_token = await page.evaluate("() => localStorage.getItem('userToken')")
                 if existing_token:
-                    print(f"ℹ️ {account_name}: Found existing userToken in localStorage, validating...")
+                    print(f"ℹ️ {account_name}: 在 localStorage 中发现已有 userToken，正在验证...")
                     if is_jwt_valid(existing_token):
-                        print(f"✅ {account_name}: Cached userToken is valid")
+                        print(f"✅ {account_name}: 缓存的 userToken 有效")
                         await context.storage_state(path=cache_file_path)
                         return existing_token
                     else:
-                        print(f"⚠️ {account_name}: Cached userToken expired, need to re-login")
+                        print(f"⚠️ {account_name}: 缓存的 userToken 已过期，需要重新登录")
 
                 # Step 2: 调用 /api/auth/login 获取 auth_url
-                print(f"ℹ️ {account_name}: No cached token, fetching auth_url from /api/auth/login")
+                print(f"ℹ️ {account_name}: 无缓存 token，正在从 /api/auth/login 获取 auth_url")
                 auth_result = await page.evaluate("""
                     async () => {
                         try {
@@ -336,11 +336,11 @@ async def _get_x666_user_token(
                 """)
 
                 if not auth_result:
-                    print(f"❌ {account_name}: Failed to get auth_url from /api/auth/login")
+                    print(f"❌ {account_name}: 从 /api/auth/login 获取 auth_url 失败")
                     await take_screenshot(page, "x666_auth_url_failed", account_name)
                     return None
 
-                print(f"ℹ️ {account_name}: Got auth_url, navigating to Linux.do authorization page")
+                print(f"ℹ️ {account_name}: 已获取 auth_url，正在跳转到 Linux.do 授权页面")
 
                 # Step 3: 导航到 connect.linux.do 授权页面
                 await page.goto(auth_result, wait_until="domcontentloaded")
@@ -350,14 +350,14 @@ async def _get_x666_user_token(
 
                 # 检查是否已经被重定向回 up.x666.me（已授权过）
                 if "up.x666.me" in current_url and "token=" in current_url:
-                    print(f"✅ {account_name}: Already authorized, redirected back with token")
+                    print(f"✅ {account_name}: 已授权过，重定向返回并携带 token")
                 else:
                     # 检查是否出现授权按钮（已登录 linux.do）
                     allow_btn = await page.query_selector('a[href^="/oauth2/approve"]')
 
                     if not allow_btn:
                         # 未登录，需要填写用户名密码
-                        print(f"ℹ️ {account_name}: Not logged in to Linux.do, performing login")
+                        print(f"ℹ️ {account_name}: 未登录 Linux.do，正在执行登录")
 
                         # 如果在 linux.do 登录页面
                         if "linux.do" in current_url:
@@ -396,7 +396,7 @@ async def _get_x666_user_token(
 
                     # 点击授权按钮
                     if allow_btn:
-                        print(f"ℹ️ {account_name}: Clicking authorize button")
+                        print(f"ℹ️ {account_name}: 正在点击授权按钮")
                         await allow_btn.click()
                         await page.wait_for_timeout(5000)
 
@@ -417,7 +417,7 @@ async def _get_x666_user_token(
                     token_list = params.get("token", [])
                     if token_list:
                         user_token = token_list[0]
-                        print(f"✅ {account_name}: Got userToken from URL parameter")
+                        print(f"✅ {account_name}: 从 URL 参数中获取到 userToken")
 
                 # 如果 URL 中没有，尝试从 localStorage 获取
                 if not user_token:
@@ -425,22 +425,22 @@ async def _get_x666_user_token(
                         await page.wait_for_timeout(3000)
                         user_token = await page.evaluate("() => localStorage.getItem('userToken')")
                         if user_token:
-                            print(f"✅ {account_name}: Got userToken from localStorage")
+                            print(f"✅ {account_name}: 从 localStorage 中获取到 userToken")
                     except Exception:
                         pass
 
                 if user_token:
                     # 保存 storage_state 用于下次缓存
                     await context.storage_state(path=cache_file_path)
-                    print(f"✅ {account_name}: Storage state saved for x666 up")
+                    print(f"✅ {account_name}: 已保存 x666 up 的存储状态")
                     return user_token
                 else:
-                    print(f"❌ {account_name}: Failed to obtain userToken from up.x666.me")
+                    print(f"❌ {account_name}: 从 up.x666.me 获取 userToken 失败")
                     await take_screenshot(page, "x666_token_failed", account_name)
                     return None
 
             except Exception as e:
-                print(f"❌ {account_name}: Error during x666 auto-login: {e}")
+                print(f"❌ {account_name}: x666 自动登录过程中出错：{e}")
                 await take_screenshot(page, "x666_auto_login_error", account_name)
                 return None
             finally:
@@ -448,7 +448,7 @@ async def _get_x666_user_token(
                 await context.close()
 
     except Exception as e:
-        print(f"❌ {account_name}: Failed to launch browser for x666 auto-login: {e}")
+        print(f"❌ {account_name}: 启动浏览器执行 x666 自动登录失败：{e}")
         return None
 
 
@@ -471,7 +471,7 @@ async def get_x666_cdk(
         tuple[bool, dict]: (True, {"code": ""}) 成功（不需要充值），(False, {"error": "msg"}) 失败
     """
     account_name = account_config.get_display_name()
-    proxy_config = account_config.proxy or account_config.get("global_proxy")
+    proxy_config = resolve_account_proxy(account_config)
 
     # 1. 优先使用手动配置的 access_token（向后兼容）
     access_token = account_config.get("access_token")
@@ -485,14 +485,14 @@ async def get_x666_cdk(
                 account_name, ld_account.username, ld_account.password, proxy_config
             )
         else:
-            print(f"❌ {account_name}: No access_token and no linux.do accounts configured")
-            yield False, {"error": "access_token not found and no linux.do accounts available"}
+            print(f"❌ {account_name}: 未配置 access_token，也未配置 linux.do 账号")
+            yield False, {"error": "未找到 access_token，且没有可用的 linux.do 账号"}
             return
 
     # 3. 自动登录也失败则报错
     if not access_token:
-        print(f"❌ {account_name}: Failed to obtain access_token via auto-login")
-        yield False, {"error": "Failed to obtain access_token via auto-login"}
+        print(f"❌ {account_name}: 通过自动登录获取 access_token 失败")
+        yield False, {"error": "通过自动登录获取 access_token 失败"}
         return
 
     http_proxy = proxy_resolve(proxy_config)
@@ -545,18 +545,18 @@ async def get_x666_cdk(
                         today_record = status_data.get("today_record")
                         today_quota = today_record.get("quota_amount", 0)
                         today_quota_display = round(today_quota / 500, 2)
-                        print(f"✅ {account_name}: Already spun today, today's prize: {today_quota_display}")
+                        print(f"✅ {account_name}: 今日已抽奖，今日奖励：{today_quota_display}")
                         # 已经抽过，返回成功但 code 为空表示不需要充值
                         yield True, {"code": ""}
                         return
                 else:
-                    error_msg = status_data.get("message", "Unknown error") if status_data else "Invalid response"
-                    print(f"❌ {account_name}: Failed to get checkin status: {error_msg}")
-                    yield False, {"error": f"Failed to get checkin status: {error_msg}"}
+                    error_msg = status_data.get("message", "未知错误") if status_data else "响应无效"
+                    print(f"❌ {account_name}: 获取签到状态失败：{error_msg}")
+                    yield False, {"error": f"获取签到状态失败：{error_msg}"}
                     return
             else:
-                print(f"❌ {account_name}: Failed to get checkin status, HTTP {status_response.status_code}")
-                yield False, {"error": f"Failed to get checkin status, HTTP {status_response.status_code}"}
+                print(f"❌ {account_name}: 获取签到状态失败，HTTP {status_response.status_code}")
+                yield False, {"error": f"获取签到状态失败，HTTP {status_response.status_code}"}
                 return
 
             # 执行抽奖
@@ -590,28 +590,28 @@ async def get_x666_cdk(
                     # {"success":true,"level":6,"times":150,"quota":75000,"label":"150次","new_balance":33497000,"message":"恭喜获得 150次！"}
                     message = json_data.get("message", "")
                     
-                    print(f"✅ {account_name}: Spin successful! {message}")
+                    print(f"✅ {account_name}: 抽奖成功！{message}")
                     # 成功，返回空 code 表示不需要充值（奖励已直接充值到账户）
                     yield True, {"code": ""}
                     return
 
                 message = json_data.get("message", json_data.get("msg", ""))
                 if "already" in message.lower() or "已签到" in message:
-                    print(f"✅ {account_name}: Already spun today, {message}")
+                    print(f"✅ {account_name}: 今日已抽奖，{message}")
                     # 已经抽过，返回成功但 code 为空
                     yield True, {"code": ""}
                     return
 
-                print(f"❌ {account_name}: Spin failed - {message}")
-                yield False, {"error": f"Spin failed - {message}"}
+                print(f"❌ {account_name}: 抽奖失败 - {message}")
+                yield False, {"error": f"抽奖失败 - {message}"}
             else:
-                print(f"❌ {account_name}: Spin failed, HTTP {response.status_code}")
-                yield False, {"error": f"Spin failed, HTTP {response.status_code}"}
+                print(f"❌ {account_name}: 抽奖失败，HTTP {response.status_code}")
+                yield False, {"error": f"抽奖失败，HTTP {response.status_code}"}
         finally:
             session.close()
     except Exception as e:
-        print(f"❌ {account_name}: Error executing x666 spin - {e}")
-        yield False, {"error": f"Error executing x666 spin - {e}"}
+        print(f"❌ {account_name}: 执行 x666 抽奖出错 - {e}")
+        yield False, {"error": f"执行 x666 抽奖出错 - {e}"}
 
 
 async def get_b4u_cdk(
@@ -632,16 +632,16 @@ async def get_b4u_cdk(
     get_cdk_cookies = account_config.get("get_cdk_cookies")
 
     if not get_cdk_cookies:
-        print(f"❌ {account_name}: get_cdk_cookies not found in account config")
-        yield False, {"error": "get_cdk_cookies not found in account config"}
+        print(f"❌ {account_name}: 账号配置中未找到 get_cdk_cookies")
+        yield False, {"error": "账号配置中未找到 get_cdk_cookies"}
         return
 
-    # 代理优先级: 账号配置 > 全局配置
-    proxy_config = account_config.proxy or account_config.get("global_proxy")
+    # 账号代理默认不启用，proxy=true 时使用全局 PROXY 配置
+    proxy_config = resolve_account_proxy(account_config)
     http_proxy = proxy_resolve(proxy_config)
 
     # 获取 cf_clearance cookie（使用公共方法，直接 await）
-    print(f"ℹ️ {account_name}: Getting cf_clearance for tw.b4u.qzz.io...")
+    print(f"ℹ️ {account_name}: 正在获取 tw.b4u.qzz.io 的 cf_clearance...")
     try:
         cf_cookies, browser_headers = await get_cf_clearance(
             url="https://tw.b4u.qzz.io/luckydraw",
@@ -649,13 +649,13 @@ async def get_b4u_cdk(
             proxy_config=proxy_config,
         )
     except Exception as e:
-        print(f"❌ {account_name}: Failed to get cf_clearance: {e}")
-        yield False, {"error": f"Failed to get cf_clearance: {e}"}
+        print(f"❌ {account_name}: 获取 cf_clearance 失败：{e}")
+        yield False, {"error": f"获取 cf_clearance 失败：{e}"}
         return
 
     if not cf_cookies or "cf_clearance" not in cf_cookies:
-        print(f"❌ {account_name}: Failed to get cf_clearance for tw.b4u.qzz.io, cannot proceed")
-        yield False, {"error": "Failed to get cf_clearance for tw.b4u.qzz.io"}
+        print(f"❌ {account_name}: 获取 tw.b4u.qzz.io 的 cf_clearance 失败，无法继续")
+        yield False, {"error": "获取 tw.b4u.qzz.io 的 cf_clearance 失败"}
         return
 
     # 根据浏览器指纹选择 impersonate
@@ -738,7 +738,7 @@ async def get_b4u_cdk(
                 # 解析响应，格式如: 0:["$@1",["xxx",null]]\n1:1
                 # 其中 "1:N" 的 N 表示剩余抽奖次数
                 response_text = status_response.text
-                print(f"ℹ️ {account_name}: Luckydraw status response: {response_text[:200]}")
+                print(f"ℹ️ {account_name}: 抽奖状态响应：{response_text[:200]}")
 
                 # 解析剩余次数
                 lines = response_text.strip().split("\n")
@@ -746,19 +746,19 @@ async def get_b4u_cdk(
                     if line.startswith("1:"):
                         try:
                             remaining = int(line[2:])
-                            print(f"ℹ️ {account_name}: Remaining draws: {remaining}")
+                            print(f"ℹ️ {account_name}: 剩余抽奖次数：{remaining}")
                         except ValueError:
                             # 不是数字，可能是其他格式
-                            print(f"⚠️ {account_name}: Could not parse remaining draws, trying once")
+                            print(f"⚠️ {account_name}: 无法解析剩余抽奖次数，尝试直接抽奖一次")
                             remaining = 1
                         break
             else:
-                print(f"⚠️ {account_name}: Failed to check luckydraw status, HTTP {status_response.status_code}")
+                print(f"⚠️ {account_name}: 检查抽奖状态失败，HTTP {status_response.status_code}")
                 # 即使状态检查失败，也尝试抽奖一次
                 remaining = 1
 
             if remaining <= 0:
-                print(f"ℹ️ {account_name}: No draws remaining today")
+                print(f"ℹ️ {account_name}: 今日已无剩余抽奖次数")
                 # 没有抽奖次数，返回成功但 code 为空
                 yield True, {"code": ""}
                 return
@@ -779,7 +779,7 @@ async def get_b4u_cdk(
 
                 if response.status_code == 200:
                     response_text = response.text
-                    print(f"ℹ️ {account_name}: Luckydraw response #{draw_count + 1}: {response_text[:300]}")
+                    print(f"ℹ️ {account_name}: 第 {draw_count + 1} 次抽奖响应：{response_text[:300]}")
 
                     # 解析响应，格式如:
                     # 0:["$@1",["xxx",null]]
@@ -797,25 +797,25 @@ async def get_b4u_cdk(
                                     if json_data.get("success"):
                                         redemption_code = json_data.get("redemptionCode", "")
                                         prize = json_data.get("prize", {})
-                                        prize_name = prize.get("name", "Unknown")
+                                        prize_name = prize.get("name", "未知")
                                         message = json_data.get("message", "")
 
                                         if redemption_code:
                                             draw_count += 1
                                             remaining -= 1
                                             print(
-                                                f"✅ {account_name}: Luckydraw #{draw_count} successful! Prize: {prize_name}, Code: {redemption_code}, remaining: {remaining}"
+                                                f"✅ {account_name}: 第 {draw_count} 次抽奖成功！奖品：{prize_name}，CDK: {redemption_code}，剩余次数：{remaining}"
                                             )
                                             yield True, {"code": redemption_code}
                                         else:
                                             print(
-                                                f"⚠️ {account_name}: Luckydraw successful but no redemption code: {message}"
+                                                f"⚠️ {account_name}: 抽奖成功但未返回兑换码：{message}"
                                             )
                                             remaining -= 1
                                     else:
-                                        message = json_data.get("message", "Unknown error")
-                                        print(f"❌ {account_name}: Luckydraw failed - {message}")
-                                        yield False, {"error": f"Luckydraw failed - {message}"}
+                                        message = json_data.get("message", "未知错误")
+                                        print(f"❌ {account_name}: 抽奖失败 - {message}")
+                                        yield False, {"error": f"抽奖失败 - {message}"}
                                         remaining = 0  # 失败时停止
                                         break
                             except json.JSONDecodeError:
@@ -823,7 +823,7 @@ async def get_b4u_cdk(
                                 try:
                                     new_remaining = int(json_str)
                                     if new_remaining == 0:
-                                        print(f"ℹ️ {account_name}: No more draws remaining")
+                                        print(f"ℹ️ {account_name}: 已无剩余抽奖次数")
                                         remaining = 0
                                 except ValueError:
                                     pass
@@ -831,17 +831,17 @@ async def get_b4u_cdk(
                             break
                     else:
                         # 如果没有找到有效的 JSON 响应
-                        print(f"⚠️ {account_name}: Could not parse luckydraw response")
+                        print(f"⚠️ {account_name}: 无法解析抽奖响应")
                         remaining = 0
                 else:
-                    print(f"❌ {account_name}: Luckydraw failed - HTTP {response.status_code}")
-                    yield False, {"error": f"Luckydraw failed - HTTP {response.status_code}"}
+                    print(f"❌ {account_name}: 抽奖失败 - HTTP {response.status_code}")
+                    yield False, {"error": f"抽奖失败 - HTTP {response.status_code}"}
                     remaining = 0
 
             if draw_count > 0:
-                print(f"✅ {account_name}: Total {draw_count} CDK(s) obtained from luckydraw")
+                print(f"✅ {account_name}: 抽奖共获得 {draw_count} 个 CDK")
         finally:
             session.close()
     except Exception as e:
-        print(f"❌ {account_name}: Error getting b4u CDK - {e}")
-        yield False, {"error": f"Error getting b4u CDK - {e}"}
+        print(f"❌ {account_name}: 获取 b4u CDK 出错 - {e}")
+        yield False, {"error": f"获取 b4u CDK 出错 - {e}"}

@@ -246,7 +246,7 @@ class AccountConfig:
     github: List["OAuthAccountConfig"] | None = None  # 改为列表类型
     site: List["SiteAccountConfig"] | None = None
     system_access_token: dict | str = ""
-    proxy: dict | None = None
+    proxy: bool | dict | None = None  # true=启用全局 PROXY；dict=自定义代理；None/false=不启用（默认）
     extra: dict = field(default_factory=dict)  # 存储额外的配置字段
 
     @classmethod
@@ -305,6 +305,20 @@ class AccountConfig:
         return self.extra.get(key, default)
 
 
+def _warn_socks5_auth(proxy: Dict) -> None:
+    """SOCKS5 代理带用户名密码认证时给出警告（Camoufox 基于 Firefox，不支持 SOCKS5 认证）"""
+    server = str(proxy.get("server", "")) if isinstance(proxy, dict) else ""
+    if not server.lower().startswith(("socks5://", "socks5h://")):
+        return
+
+    has_auth = "@" in server or (proxy.get("username") and proxy.get("password"))
+    if has_auth:
+        print(
+            "⚠️ Camoufox（Firefox 内核）不支持带用户名密码认证的 SOCKS5 代理，"
+            "浏览器请求可能失败。带认证请改用 HTTP 代理，或使用免认证的 SOCKS5 代理"
+        )
+
+
 @dataclass
 class AppConfig:
     """应用配置"""
@@ -324,15 +338,15 @@ class AppConfig:
         """解析站点账号密码配置，支持单个账号或多个账号"""
         if isinstance(config_value, dict):
             if "username" not in config_value or "password" not in config_value:
-                print(f"❌ Account {account_index + 1} site configuration must contain username and password")
+                print(f"❌ 账号 {account_index + 1} 的 site 配置必须包含 username 和 password")
                 return None
 
             if not config_value["username"] or not config_value["password"]:
-                print(f"❌ Account {account_index + 1} site username and password cannot be empty")
+                print(f"❌ 账号 {account_index + 1} 的 site 用户名和密码不能为空")
                 return None
 
             if config_value.get("mode", "auto") not in ("auto", "api", "browser"):
-                print(f"❌ Account {account_index + 1} site mode must be auto, api, or browser")
+                print(f"❌ 账号 {account_index + 1} 的 site mode 必须为 auto、api 或 browser")
                 return None
 
             return [SiteAccountConfig.from_dict(config_value)]
@@ -341,25 +355,25 @@ class AppConfig:
             accounts = []
             for j, item in enumerate(config_value):
                 if not isinstance(item, dict):
-                    print(f"❌ Account {account_index + 1} site[{j}] must be a dictionary")
+                    print(f"❌ 账号 {account_index + 1} 的 site[{j}] 必须为字典")
                     return None
 
                 if "username" not in item or "password" not in item:
-                    print(f"❌ Account {account_index + 1} site[{j}] must contain username and password")
+                    print(f"❌ 账号 {account_index + 1} 的 site[{j}] 必须包含 username 和 password")
                     return None
 
                 if not item["username"] or not item["password"]:
-                    print(f"❌ Account {account_index + 1} site[{j}] username and password cannot be empty")
+                    print(f"❌ 账号 {account_index + 1} 的 site[{j}] 用户名和密码不能为空")
                     return None
 
                 if item.get("mode", "auto") not in ("auto", "api", "browser"):
-                    print(f"❌ Account {account_index + 1} site[{j}] mode must be auto, api, or browser")
+                    print(f"❌ 账号 {account_index + 1} 的 site[{j}] mode 必须为 auto、api 或 browser")
                     return None
 
                 accounts.append(SiteAccountConfig.from_dict(item))
             return accounts
 
-        print(f"❌ Account {account_index + 1} site configuration must be dict or array")
+        print(f"❌ 账号 {account_index + 1} 的 site 配置必须为字典或数组")
         return None
 
 
@@ -441,7 +455,7 @@ class AppConfig:
 
             # 如果该 provider 已经在 accounts 中，跳过
             if provider_name in existing_providers:
-                print(f"ℹ️ Custom provider '{provider_name}' already has account(s), skipping auto-add")
+                print(f"ℹ️ 自定义 provider '{provider_name}' 已有账号，跳过自动添加")
                 continue
 
             # 检查是否有可用的认证方式
@@ -450,15 +464,15 @@ class AppConfig:
 
             if not has_linuxdo and not has_github:
                 print(
-                    f"⚠️ Custom provider '{provider_name}' has no authentication method "
-                    f"(no linuxdo_client_id/github_client_id or no global accounts), skipping auto-add"
+                    f"⚠️ 自定义 provider '{provider_name}' 没有可用的认证方式"
+                    f"（缺少 linuxdo_client_id/github_client_id 或全局账号），跳过自动添加"
                 )
                 continue
 
             # 创建新账号配置
             new_account_data = {
                 "provider": provider_name,
-                "name": f"{provider_name} (auto-added)",
+                "name": f"{provider_name}（自动添加）",
             }
 
             # 直接复制全局账号列表
@@ -467,11 +481,11 @@ class AppConfig:
 
             if has_linuxdo:
                 linux_do_accounts = global_linux_do_accounts.copy()
-                print(f"✅ Auto-adding account for custom provider '{provider_name}' with Linux.do authentication")
+                print(f"✅ 正在为自定义 provider '{provider_name}' 自动添加账号（Linux.do 认证）")
 
             if has_github:
                 github_accounts = global_github_accounts.copy()
-                print(f"✅ Auto-adding account for custom provider '{provider_name}' with GitHub authentication")
+                print(f"✅ 正在为自定义 provider '{provider_name}' 自动添加账号（GitHub 认证）")
 
             # 创建 AccountConfig
             new_account = AccountConfig.from_dict(new_account_data, linux_do_accounts, github_accounts)
@@ -496,13 +510,14 @@ class AppConfig:
         try:
             # 尝试解析为 JSON
             proxy = json.loads(proxy_str)
-            print(f"⚙️ Global proxy loaded from {proxy_env} environment variable (dict format)")
-            return proxy
+            print(f"⚙️ 已从环境变量 {proxy_env} 加载全局代理（字典格式）")
         except json.JSONDecodeError:
             # 如果不是 JSON，则视为字符串
             proxy = {"server": proxy_str}
-            print(f"⚙️ Global proxy loaded from {proxy_env} environment variable: {proxy_str}")
-            return proxy
+            print(f"⚙️ 已从环境变量 {proxy_env} 加载全局代理: {proxy_str}")
+
+        _warn_socks5_auth(proxy)
+        return proxy
 
     @classmethod
     def _load_providers(cls, providers_env: str) -> Dict[str, ProviderConfig]:
@@ -846,7 +861,7 @@ class AppConfig:
                 providers_data = json.loads(providers_str)
 
                 if not isinstance(providers_data, dict):
-                    print(f"⚠️ {providers_env} must be a JSON object, ignoring custom providers")
+                    print(f"⚠️ {providers_env} 必须为 JSON 对象，忽略自定义 providers")
                     return providers
 
                 # 解析自定义 providers,会覆盖默认配置
@@ -854,16 +869,16 @@ class AppConfig:
                     try:
                         providers[name] = ProviderConfig.from_dict(name, provider_data, is_customize=True)
                     except Exception as e:
-                        print(f'⚠️ Failed to parse provider "{name}": {e}, skipping')
+                        print(f'⚠️ 解析 provider "{name}" 失败: {e}，跳过')
                         continue
 
-                print(f"ℹ️ Loaded {len(providers_data)} custom provider(s) from {providers_env} environment variable")
+                print(f"ℹ️ 已从环境变量 {providers_env} 加载 {len(providers_data)} 个自定义 provider")
             except json.JSONDecodeError as e:
-                print(f"⚠️ Failed to parse {providers_env} environment variable: {e}, using default configuration only")
+                print(f"⚠️ 解析环境变量 {providers_env} 失败: {e}，仅使用默认配置")
             except Exception as e:
-                print(f"⚠️ Error loading {providers_env}: {e}, using default configuration only")
+                print(f"⚠️ 加载 {providers_env} 时发生错误: {e}，仅使用默认配置")
         else:
-            print(f"⚠️ {providers_env} environment variable not found, using default configuration only")
+            print(f"⚠️ 环境变量 {providers_env} 未找到，仅使用默认配置")
 
         return providers
 
@@ -881,7 +896,7 @@ class AppConfig:
         accounts_str = os.getenv(env_name)
 
         if not accounts_str:
-            print(f"⚠️ {env_name} No {provider_name} account(s) from {env_name}")
+            print(f"⚠️ {env_name} 未设置，未从 {env_name} 加载任何 {provider_name} 账号")
             return []
 
         try:
@@ -889,36 +904,36 @@ class AppConfig:
 
             # 检查是否为数组格式
             if not isinstance(accounts_data, list):
-                print(f"⚠️ {env_name} must be a JSON array, ignoring")
+                print(f"⚠️ {env_name} 必须为 JSON 数组，已忽略")
                 return []
 
             accounts = []
             for i, account in enumerate(accounts_data):
                 if not isinstance(account, dict):
-                    print(f"⚠️ {env_name} account {i + 1} must be a dictionary, skipping")
+                    print(f"⚠️ {env_name} 账号 {i + 1} 必须为字典，跳过")
                     continue
 
                 # 验证必需字段
                 if "username" not in account or "password" not in account:
-                    print(f"⚠️ {env_name} account {i + 1} must contain username and password, skipping")
+                    print(f"⚠️ {env_name} 账号 {i + 1} 必须包含 username 和 password，跳过")
                     continue
 
                 # 验证字段不为空
                 if not account["username"] or not account["password"]:
-                    print(f"⚠️ {env_name} account {i + 1} username and password cannot be empty, skipping")
+                    print(f"⚠️ {env_name} 账号 {i + 1} 用户名和密码不能为空，跳过")
                     continue
 
                 accounts.append(OAuthAccountConfig.from_dict(account))
 
             if accounts:
-                print(f"⚙️ Loaded {len(accounts)} {provider_name} account(s) from {env_name}")
+                print(f"⚙️ 已从 {env_name} 加载 {len(accounts)} 个 {provider_name} 账号")
 
             return accounts
         except json.JSONDecodeError as e:
-            print(f"⚠️ Failed to parse {env_name}: {e}")
+            print(f"⚠️ 解析 {env_name} 失败: {e}")
             return []
         except Exception as e:
-            print(f"⚠️ Error loading {env_name}: {e}")
+            print(f"⚠️ 加载 {env_name} 时发生错误: {e}")
             return []
 
     @classmethod
@@ -945,7 +960,7 @@ class AppConfig:
             if config_value:
                 if not global_accounts:
                     print(
-                        f"⚠️ Account {account_index + 1} {config_name}=true but no global {config_name} accounts configured"
+                        f"⚠️ 账号 {account_index + 1} 设置了 {config_name}=true，但未配置全局 {config_name} 账号"
                     )
                     return []
                 return global_accounts.copy()
@@ -956,12 +971,12 @@ class AppConfig:
         if isinstance(config_value, dict):
             # 验证必需字段
             if "username" not in config_value or "password" not in config_value:
-                print(f"❌ Account {account_index + 1} {config_name} configuration must contain username and password")
+                print(f"❌ 账号 {account_index + 1} 的 {config_name} 配置必须包含 username 和 password")
                 return None
 
             # 验证字段不为空
             if not config_value["username"] or not config_value["password"]:
-                print(f"❌ Account {account_index + 1} {config_name} username and password cannot be empty")
+                print(f"❌ 账号 {account_index + 1} 的 {config_name} 用户名和密码不能为空")
                 return None
 
             return [OAuthAccountConfig.from_dict(config_value)]
@@ -971,23 +986,23 @@ class AppConfig:
             accounts = []
             for j, item in enumerate(config_value):
                 if not isinstance(item, dict):
-                    print(f"❌ Account {account_index + 1} {config_name}[{j}] must be a dictionary")
+                    print(f"❌ 账号 {account_index + 1} 的 {config_name}[{j}] 必须为字典")
                     return None
 
                 # 验证必需字段
                 if "username" not in item or "password" not in item:
-                    print(f"❌ Account {account_index + 1} {config_name}[{j}] must contain username and password")
+                    print(f"❌ 账号 {account_index + 1} 的 {config_name}[{j}] 必须包含 username 和 password")
                     return None
 
                 # 验证字段不为空
                 if not item["username"] or not item["password"]:
-                    print(f"❌ Account {account_index + 1} {config_name}[{j}] username and password cannot be empty")
+                    print(f"❌ 账号 {account_index + 1} 的 {config_name}[{j}] 用户名和密码不能为空")
                     return None
 
                 accounts.append(OAuthAccountConfig.from_dict(item))
             return accounts
 
-        print(f"❌ Account {account_index + 1} {config_name} configuration must be bool, dict, or array")
+        print(f"❌ 账号 {account_index + 1} 的 {config_name} 配置必须为 bool、字典或数组")
         return None
 
     @classmethod
@@ -1012,7 +1027,7 @@ class AppConfig:
         accounts_str = os.getenv(accounts_env)
 
         if not accounts_str:
-            print(f"⚠️ {accounts_env} environment variable not found")
+            print(f"⚠️ 环境变量 {accounts_env} 未找到")
             return []
 
         try:
@@ -1020,22 +1035,22 @@ class AppConfig:
 
             # 检查是否为数组格式
             if not isinstance(accounts_data, list):
-                print("❌ Account configuration must use array format [{}]")
+                print("❌ 账号配置必须使用数组格式 [{}]")
                 return []
 
             accounts = []
             # 验证账号数据格式
             for i, account in enumerate(accounts_data):
                 if not isinstance(account, dict):
-                    print(f"⚠️ Account {i + 1} configuration format is incorrect, skipping")
+                    print(f"⚠️ 账号 {i + 1} 配置格式不正确，跳过")
                     continue
 
                 # 如果有 name 字段,确保它不是空字符串
                 if "name" in account and not account["name"]:
-                    print(f"⚠️ Account {i + 1} name field cannot be empty, skipping")
+                    print(f"⚠️ 账号 {i + 1} 的 name 字段不能为空，跳过")
                     continue
 
-                account_name = account.get("name") or f"Account {i + 1}"
+                account_name = account.get("name") or f"账号 {i + 1}"
 
                 # 检查配置键是否存在
                 has_linux_do = "linux.do" in account
@@ -1054,7 +1069,7 @@ class AppConfig:
                         i,
                     )
                     if linux_do_accounts is None:
-                        print(f"⚠️ {account_name} linux.do configuration is invalid, skipping")
+                        print(f"⚠️ {account_name} 的 linux.do 配置无效，跳过")
                         continue
 
                 # 解析 github 配置（支持 bool、单个账号、多个账号）
@@ -1067,14 +1082,14 @@ class AppConfig:
                         i,
                     )
                     if github_accounts is None:
-                        print(f"⚠️ {account_name} github configuration is invalid, skipping")
+                        print(f"⚠️ {account_name} 的 github 配置无效，跳过")
                         continue
 
                 site_accounts = None
                 if has_site:
                     site_accounts = cls._parse_site_config(account["site"], i)
                     if site_accounts is None:
-                        print(f"⚠️ {account_name} site configuration is invalid, skipping")
+                        print(f"⚠️ {account_name} 的 site 配置无效，跳过")
                         continue
 
                 # 验证 system_access_token 配置
@@ -1086,9 +1101,9 @@ class AppConfig:
                     if system_access_token_value and api_user:
                         valid_system_access_token = True
                     elif system_access_token_value and not api_user:
-                        print(f"⚠️ {account_name} with system_access_token must have api_user field")
+                        print(f"⚠️ {account_name} 配置了 system_access_token 但缺少 api_user 字段")
                     elif not system_access_token_value:
-                        print(f"⚠️ {account_name} system_access_token is empty")
+                        print(f"⚠️ {account_name} 的 system_access_token 为空")
 
                 # 验证 cookies 配置
                 valid_cookies = False
@@ -1099,9 +1114,9 @@ class AppConfig:
                     if cookies_config and api_user:
                         valid_cookies = True
                     elif cookies_config and not api_user:
-                        print(f"⚠️ {account_name} with cookies must have api_user field")
+                        print(f"⚠️ {account_name} 配置了 cookies 但缺少 api_user 字段")
                     elif not cookies_config:
-                        print(f"⚠️ {account_name} cookies is empty")
+                        print(f"⚠️ {account_name} 的 cookies 为空")
 
                 # 检查解析后是否至少有一个有效的认证方式
                 has_valid_linux_do = linux_do_accounts is not None and len(linux_do_accounts) > 0
@@ -1110,7 +1125,7 @@ class AppConfig:
 
                 if not has_valid_linux_do and not has_valid_github and not has_valid_site and not valid_system_access_token and not valid_cookies:
                     print(
-                        f"⚠️ {account_name} must have at least one valid authentication method (site, linux.do, github, system_access_token, or cookies), skipping"
+                        f"⚠️ {account_name} 至少需要一种有效的认证方式（site、linux.do、github、system_access_token 或 cookies），跳过"
                     )
                     continue
 
@@ -1122,10 +1137,10 @@ class AppConfig:
 
             return accounts
         except json.JSONDecodeError as e:
-            print(f"❌ Account configuration JSON format is incorrect: {e}")
+            print(f"❌ 账号配置 JSON 格式不正确: {e}")
             return []
         except Exception as e:
-            print(f"❌ Account configuration format is incorrect: {e}")
+            print(f"❌ 账号配置格式不正确: {e}")
             return []
 
     def get_provider(self, name: str) -> ProviderConfig | None:

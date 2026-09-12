@@ -42,12 +42,12 @@ async def get_cf_clearance(
     safe_account_name = "".join(c if c.isalnum() else "_" for c in account_name)
     
     print(
-        f"ℹ️ {account_name}: Starting browser to get cf_clearance for {url} "
-        f"(using proxy: {'true' if proxy_config else 'false'})"
+        f"ℹ️ {account_name}: 启动浏览器获取 cf_clearance，目标: {url} "
+        f"(使用代理: {'true' if proxy_config else 'false'})"
     )
     
     with tempfile.TemporaryDirectory(prefix=f"camoufox_{safe_account_name}_cf_clearance_") as tmp_dir:
-        print(f"ℹ️ {account_name}: Using temporary directory: {tmp_dir}")
+        print(f"ℹ️ {account_name}: 使用临时目录: {tmp_dir}")
         
         async with AsyncCamoufox(
             persistent_context=True,
@@ -65,7 +65,7 @@ async def get_cf_clearance(
             page = await browser.new_page()
             
             try:
-                print(f"ℹ️ {account_name}: Access {url} to trigger Cloudflare challenge")
+                print(f"ℹ️ {account_name}: 访问 {url} 以触发 Cloudflare 验证")
                 
                 async with ClickSolver(
                     framework=FrameworkType.CAMOUFOX,
@@ -81,20 +81,20 @@ async def get_cf_clearance(
                     page_content = await page.content()
                     
                     if "Just a moment" in page_title or "Checking your browser" in page_content:
-                        print(f"ℹ️ {account_name}: Cloudflare challenge detected, auto-solving...")
+                        print(f"ℹ️ {account_name}: 检测到 Cloudflare 验证，正在自动解决...")
                         try:
                             await solver.solve_captcha(
                                 captcha_container=page,
                                 captcha_type=CaptchaType.CLOUDFLARE_INTERSTITIAL
                             )
-                            print(f"✅ {account_name}: Cloudflare challenge auto-solved")
+                            print(f"✅ {account_name}: Cloudflare 验证已自动解决")
                             await page.wait_for_timeout(10000)
                         except Exception as solve_err:
-                            print(f"⚠️ {account_name}: Auto-solve failed: {solve_err}, waiting for manual verification...")
+                            print(f"⚠️ {account_name}: 自动解决失败: {solve_err}，等待手动验证...")
                             # 自动求解失败，回退到手动等待
                             await wait_for_cf_clearance_manually(browser, page, account_name)
                     else:
-                        print(f"ℹ️ {account_name}: No Cloudflare challenge detected")
+                        print(f"ℹ️ {account_name}: 未检测到 Cloudflare 验证")
                         # 不需要手动操作，但需要等待后台完成 Cloudflare 验证
                         await wait_for_cf_clearance_manually(browser, page, account_name)
                 
@@ -105,11 +105,11 @@ async def get_cf_clearance(
                 for cookie in cookies:
                     cookie_name = cookie.get("name")
                     cookie_value = cookie.get("value")
-                    print(f"  📚 Cookie: {cookie_name} (value: {cookie_value[:50] if cookie_value and len(cookie_value) > 50 else cookie_value}...)")
+                    print(f"  📚 Cookie: {cookie_name} (值: {cookie_value[:50] if cookie_value and len(cookie_value) > 50 else cookie_value}...)")
                     if cookie_name in ["cf_clearance", "__cf_bm", "cf_chl_2", "cf_chl_prog"] and cookie_value is not None:
                         cf_cookies[cookie_name] = cookie_value
                 
-                print(f"ℹ️ {account_name}: Got {len(cf_cookies)} Cloudflare cookies")
+                print(f"ℹ️ {account_name}: 获取到 {len(cf_cookies)} 个 Cloudflare Cookie")
                 
                 # 获取浏览器指纹信息
                 browser_headers = await get_browser_headers(page)
@@ -117,16 +117,16 @@ async def get_cf_clearance(
                 
                 # 检查是否获取到 cf_clearance cookie
                 if "cf_clearance" not in cf_cookies:
-                    print(f"⚠️ {account_name}: cf_clearance cookie not obtained")
+                    print(f"⚠️ {account_name}: 未获取到 cf_clearance cookie")
                     return None, browser_headers
                 
                 cookie_names = list(cf_cookies.keys())
-                print(f"✅ {account_name}: Successfully got Cloudflare cookies: {cookie_names}")
+                print(f"✅ {account_name}: 成功获取 Cloudflare Cookie: {cookie_names}")
                 
                 return cf_cookies, browser_headers
                 
             except Exception as e:
-                print(f"⚠️ {account_name}: Error getting cf_clearance: {e}")
+                print(f"⚠️ {account_name}: 获取 cf_clearance 时发生错误: {e}")
                 return None, None
             
             finally:
@@ -166,7 +166,7 @@ async def wait_for_cf_clearance_manually(
                 break
 
         if cf_clearance:
-            print(f"✅ {account_name}: cf_clearance cookie obtained")
+            print(f"✅ {account_name}: 已获取 cf_clearance cookie")
             return True
 
         # 检查页面是否还在 Cloudflare 验证页面
@@ -174,13 +174,13 @@ async def wait_for_cf_clearance_manually(
         page_content = await page.content()
         
         if "Just a moment" in page_title or "Checking your browser" in page_content:
-            print(f"ℹ️ {account_name}: Cloudflare challenge in progress, waiting...")
+            print(f"ℹ️ {account_name}: Cloudflare 验证进行中，等待中...")
         else:
             # 页面已经加载完成，但可能还没有 cf_clearance
-            print(f"ℹ️ {account_name}: Page loaded, checking for cf_clearance...")
+            print(f"ℹ️ {account_name}: 页面已加载，正在检查 cf_clearance...")
 
         await page.wait_for_timeout(check_interval)
         elapsed_time += check_interval
 
-    print(f"⚠️ {account_name}: Timeout waiting for cf_clearance cookie")
+    print(f"⚠️ {account_name}: 等待 cf_clearance cookie 超时")
     return False

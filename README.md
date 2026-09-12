@@ -178,7 +178,10 @@
 
 - `name` (可选)：自定义账号显示名称，用于通知和日志中标识账号
 - `provider` (可选)：供应商，内置 `anyrouter`、`wong`、`huan666`、`x666`、`kfc`、`elysiver`、`hotaru`默认使用 `anyrouter`
-- `proxy` (可选)：单个账号代理配置，支持 `http`、`socks5` 代理
+- `proxy` (可选)：单个账号代理配置，**默认不启用**，支持三种格式：
+  - 不配置或 `false`：不使用代理
+  - `true`：启用全局 `PROXY` secret 中配置的代理
+  - `{"server": "..."}`：本账号专用代理（支持 `http`、`socks5` 代理）
 - `cookies`(可选)：用于身份验证的 cookies 数据
 - `system_access_token`(可选)：系统访问令牌，通过 `Authorization: Bearer <token>` 方式认证签到
 - `api_user`(cookies 或 system_access_token 设置时必需)：用于请求头的 new-api-user 参数
@@ -213,7 +216,7 @@
 
 
 #### 3.5 代理配置
-> 应用到所有的账号，如果单个账号需要使用代理，请在单个账号配置中添加 `proxy` 字段。  
+> 代理配置保存后在 `PROXY` secret 中，但**默认不启用**，需要在 `ACCOUNTS` 的单个账号中设置 `"proxy": true` 才会对该账号的站点访问生效。  
 > 打开 [webshare](https://dashboard.webshare.io/) 注册账号，获取免费代理
 
 在仓库的 Settings -> Environments -> production -> Environment secrets 中添加：
@@ -233,7 +236,32 @@
   "username": "username",
   "password": "password"
 }
+
+也支持 socks5 代理（注意：浏览器端 Camoufox 不支持 socks5 的用户名密码认证，socks5 建议使用免认证代理，带认证请用 http 代理）
+
+{
+  "server": "socks5://proxy.example.com:1080"
+}
 ```
+
+也可以直接填代理 URL 字符串（无需 JSON 格式）：
+
+```bash
+http://username:password@proxy.example.com:8080
+socks5://proxy.example.com:1080
+```
+
+#### 3.5.1 linux.do 代理（LINUXDO_PROXY）
+
+linux.do 会对 GitHub Actions 等数据中心 IP 进行限流（登录页返回 `Too Many Requests`/HTTP 429），
+可为访问 linux.do 单独启用代理，而站点访问保持直连：
+
+在仓库的 Settings -> Environments -> production -> Environment secrets（或 variables）中添加：
+   - Name: `LINUXDO_PROXY`
+   - Value: `true`
+
+- `LINUXDO_PROXY=true` 时，登录/授权 linux.do（`https://linux.do/`、`https://connect.linux.do/`）的浏览器流量使用 `PROXY` secret 中配置的代理
+- 未配置或为 `false` 时，访问 linux.do 与站点访问使用相同的代理策略（账号 `proxy` 字段控制）
 
 
 #### 3.6 如何获取 cookies 与 api_user 的值。
