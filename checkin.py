@@ -774,20 +774,28 @@ class CheckIn:
 
             # 检查签到结果
             message = json_data.get("message", json_data.get("msg", ""))
+            # 不同站点的"已签到"提示文案不同（已经签到 / 今日已签到 / 已簽到 / 请勿重复签到 / already 等），
+            # 重复签到不算失败，一律视为成功
+            already_signed_in = (
+                any(keyword in message for keyword in ("已经签到", "已签到", "已簽到", "重复签到"))
+                or "already" in message.lower()
+            )
 
             if (
                 json_data.get("ret") == 1
                 or json_data.get("code") == 0
                 or json_data.get("success")
-                or "已经签到" in message
                 or "签到成功" in message
+                or already_signed_in
             ):
                 # 提取签到数据
                 check_in_data = json_data.get("data", {})
                 checkin_date = check_in_data.get("checkin_date", "")
                 quota_awarded = check_in_data.get("quota_awarded", 0)
-                
-                if quota_awarded:
+
+                if already_signed_in and not quota_awarded:
+                    print(f"✅ {self.account_name}: {message}（无需重复签到）")
+                elif quota_awarded:
                     quota_display = round(quota_awarded / 500000, 2)
                     print(f"✅ {self.account_name}: 签到成功！日期：{checkin_date}，奖励额度：${quota_display}")
                 else:
