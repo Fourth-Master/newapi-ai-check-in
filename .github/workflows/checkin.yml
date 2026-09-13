@@ -10,7 +10,7 @@ on:
         type: string
         default: ''
       providers:
-        description: '自定义 Provider 配置 (JSON 格式，可选，不填则使用 secrets.PROVIDERS)'
+        description: '自定义 Provider 配置 (JSON 格式，可选，不填则使用 secrets.PROVIDERS 或 vars.PROVIDERS)'
         required: false
         type: string
         default: ''
@@ -108,7 +108,7 @@ jobs:
         ACCOUNTS: ${{ inputs.accounts || secrets.ACCOUNTS }}
         ACCOUNTS_LINUX_DO: ${{ secrets.ACCOUNTS_LINUX_DO }}
         ACCOUNTS_GITHUB: ${{ secrets.ACCOUNTS_GITHUB }}
-        PROVIDERS: ${{ inputs.providers || secrets.PROVIDERS }}
+        PROVIDERS: ${{ inputs.providers || secrets.PROVIDERS || vars.PROVIDERS }}
         PROXY: ${{secrets.PROXY}}
         LINUXDO_PROXY: ${{ secrets.LINUXDO_PROXY || vars.LINUXDO_PROXY || 'false' }}
         STORATE_STATES_GITHUB: ${{ secrets.STORATE_STATES_GITHUB }}

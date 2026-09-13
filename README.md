@@ -209,9 +209,10 @@
 
 #### 3.4 供应商配置：
 
-在仓库的 Settings -> Environments -> production -> Environment secrets 中添加：
+在仓库的 Settings -> Environments -> production 中添加（Environment secrets 或 Environment variables 均可）：
    - Name: `PROVIDERS`
    - Value: 供应商
+   - 取值优先级：手动触发的 `providers` 输入参数 > Environment secrets > Environment variables
    - 说明: 自定义 provider 默认不会自动添加到账号中；只有配置 `"auto_add": true`，且账号配置中没有使用该 provider 时，才会自动添加执行（详见 [PROVIDERS.json](./PROVIDERS.json)）。
 
 
