@@ -314,8 +314,9 @@ def _warn_socks5_auth(proxy: Dict) -> None:
     has_auth = "@" in server or (proxy.get("username") and proxy.get("password"))
     if has_auth:
         print(
-            "⚠️ Camoufox（Firefox 内核）不支持带用户名密码认证的 SOCKS5 代理，"
-            "浏览器会直接启动失败（Browser does not support socks5 proxy authentication）。"
+            "⚠️ Camoufox（Firefox 内核）不支持带用户名密码认证的 SOCKS5 代理："
+            "username/password 字段会导致浏览器直接启动失败（Browser does not support socks5 proxy authentication），"
+            "凭据写在 server URL 里则会被 Playwright 静默剥离、以无认证方式连接导致访问失败。"
             "带认证请改用 HTTP 代理，或使用免认证的 SOCKS5 代理"
         )
 
