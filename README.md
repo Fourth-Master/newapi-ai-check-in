@@ -237,7 +237,10 @@
   "password": "password"
 }
 
-也支持 socks5 代理（注意：浏览器端 Camoufox 不支持 socks5 的用户名密码认证，socks5 建议使用免认证代理，带认证请用 http 代理）
+也支持 socks5 代理，但用户名密码认证的支持分两层（实测验证）：
+- HTTP 请求层（签到接口、OAuth 回调等 curl_cffi 请求）：socks5 带用户名密码 ✅ 支持
+- 浏览器层（Camoufox）：socks5 带用户名密码 ❌ 直接启动失败（Playwright 限制：Browser does not support socks5 proxy authentication）
+- 因此：带认证的代理请用 `http://` 入口（绝大多数代理商同时提供 http 端口）；socks5 只能使用免认证（IP 白名单）模式
 
 {
   "server": "socks5://proxy.example.com:1080"

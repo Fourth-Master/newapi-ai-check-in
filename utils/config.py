@@ -306,7 +306,7 @@ class AccountConfig:
 
 
 def _warn_socks5_auth(proxy: Dict) -> None:
-    """SOCKS5 代理带用户名密码认证时给出警告（Camoufox 基于 Firefox，不支持 SOCKS5 认证）"""
+    """SOCKS5 代理带用户名密码认证时给出警告（实测 Playwright 会直接拒绝启动浏览器）"""
     server = str(proxy.get("server", "")) if isinstance(proxy, dict) else ""
     if not server.lower().startswith(("socks5://", "socks5h://")):
         return
@@ -315,7 +315,8 @@ def _warn_socks5_auth(proxy: Dict) -> None:
     if has_auth:
         print(
             "⚠️ Camoufox（Firefox 内核）不支持带用户名密码认证的 SOCKS5 代理，"
-            "浏览器请求可能失败。带认证请改用 HTTP 代理，或使用免认证的 SOCKS5 代理"
+            "浏览器会直接启动失败（Browser does not support socks5 proxy authentication）。"
+            "带认证请改用 HTTP 代理，或使用免认证的 SOCKS5 代理"
         )
 
 
